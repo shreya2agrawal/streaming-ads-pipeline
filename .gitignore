@@ -1,0 +1,32 @@
+# ── Secrets — NEVER commit these ─────────────────────────────────────────────
+application.yaml
+application.properties
+.env
+*.env
+
+# ── Java / Maven ──────────────────────────────────────────────────────────────
+target/
+*.class
+*.jar
+*.war
+HELP.md
+.mvn/wrapper/maven-wrapper.jar
+
+# ── Node / React ──────────────────────────────────────────────────────────────
+node_modules/
+build/
+npm-debug.log*
+
+# ── Zip files ─────────────────────────────────────────────────────────────────
+*.zip
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── IDEs ──────────────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
