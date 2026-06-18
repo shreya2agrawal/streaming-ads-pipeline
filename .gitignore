@@ -30,3 +30,9 @@ Thumbs.db
 *.iml
 *.iws
 *.ipr
+big-data-python/data/
+.venv/
+big-data-python/__pycache__/
+big-data-python/model.pkl
+big-data-python/__pycache__/
+big-data-python/model.pkl
