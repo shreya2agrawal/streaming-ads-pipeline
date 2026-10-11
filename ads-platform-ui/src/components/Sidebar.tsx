@@ -11,6 +11,7 @@ const navItems: NavItem[] = [
     { path: '/overview', label: 'Overview', icon: 'ti-layout-dashboard' },
     { path: '/campaigns', label: 'Campaigns', icon: 'ti-speakerphone' },
     { path: '/inventory', label: 'Inventory', icon: 'ti-box' },
+    { path: '/placements', label: 'Placements', icon: 'ti-layout-grid' },
     { path: '/safety', label: 'Brand safety', icon: 'ti-shield-check' },
     { path: '/plans', label: 'Media plans', icon: 'ti-file-description' },
     { path: '/insights', label: 'Insights', icon: 'ti-chart-bar' },

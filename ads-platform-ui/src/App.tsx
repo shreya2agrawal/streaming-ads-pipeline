@@ -7,6 +7,7 @@ import CampaignsPage from './pages/CampaignsPage';
 import MediaPlanPage from './pages/MediaPlanPage';
 import InventoryPage from './pages/InventoryPage';
 import InsightsPage from './pages/InsightsPage';
+import PlacementsPage from './pages/PlacementsPage';
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
             <Route path="/campaigns" element={<CampaignsPage />} />
             <Route path="/safety" element={<SafetyPage />} />
             <Route path="/inventory" element={<InventoryPage />} />
+            <Route path="/placements" element={<PlacementsPage />} />
             <Route path="/plans" element={<MediaPlanPage />} />
             <Route path="/insights" element={<InsightsPage/>} />
           </Routes>

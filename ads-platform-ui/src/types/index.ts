@@ -78,3 +78,45 @@ export interface ApiResponse<T> {
     message: string,
     data: T;
 }
+
+export type PlacementType =
+    | 'PRE_ROLL'
+    | 'MID_ROLL'
+    | 'POST_ROLL'
+    | 'PAUSE_SCREEN'
+    | 'HOME_HERO'
+    | 'HOME_FEED'
+    | 'SEARCH_RESULTS'
+    | 'CONTENT_DETAILS'
+    | 'LIVE_EVENT_BREAK';
+
+export type DeviceType =
+    | 'TV'
+    | 'MOBILE'
+    | 'WEB'
+    | 'TABLET';
+
+export type CreativeType =
+    | 'VIDEO'
+    | 'IMAGE'
+    | 'NATIVE';
+
+export interface Placement {
+    id: number;
+    name: string;
+    type: PlacementType;
+    active: boolean;
+    maxAds: number | null;
+    durationSeconds: number | null;
+    supportedDevices: DeviceType[];
+    supportedCreativeTypes: CreativeType[];
+}
+
+export interface PlacementRequest {
+    name: string;
+    type: PlacementType;
+    maxAds: number | null;
+    durationSeconds: number | null;
+    supportedDevices: DeviceType[];
+    supportedCreativeTypes: CreativeType[];
+}
