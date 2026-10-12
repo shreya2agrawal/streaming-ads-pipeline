@@ -10,6 +10,7 @@ interface NavItem {
 const navItems: NavItem[] = [
     { path: '/overview', label: 'Overview', icon: 'ti-layout-dashboard' },
     { path: '/campaigns', label: 'Campaigns', icon: 'ti-speakerphone' },
+    { path: '/creatives', label: 'Creatives', icon: 'ti-photo' },
     { path: '/inventory', label: 'Inventory', icon: 'ti-box' },
     { path: '/placements', label: 'Placements', icon: 'ti-layout-grid' },
     { path: '/safety', label: 'Brand safety', icon: 'ti-shield-check' },

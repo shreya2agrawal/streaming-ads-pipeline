@@ -120,3 +120,78 @@ export interface PlacementRequest {
     supportedDevices: DeviceType[];
     supportedCreativeTypes: CreativeType[];
 }
+
+export type CreativeStatus =
+  | 'DRAFT'
+  | 'ACTIVE'
+  | 'PAUSED'
+  | 'ARCHIVED';
+
+export type CreativeSafetyStatus =
+  | 'UNREVIEWED'
+  | 'PENDING_REVIEW'
+  | 'APPROVED'
+  | 'REJECTED';
+
+export interface Creative {
+  id: number;
+  campaignId: number;
+  name: string;
+  creativeType: CreativeType;
+  mediaUrl: string;
+  destinationUrl: string;
+  contentText: string;
+  durationSeconds: number | null;
+  status: CreativeStatus;
+  safetyStatus: CreativeSafetyStatus;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface CreateCreativeRequest {
+  campaignId: number;
+  name: string;
+  creativeType: CreativeType;
+  mediaUrl: string;
+  destinationUrl: string;
+  contentText: string;
+  durationSeconds: number | null;
+}
+
+export interface UpdateCreativeRequest {
+  name: string;
+  creativeType: CreativeType;
+  mediaUrl: string;
+  destinationUrl: string;
+  contentText: string;
+  durationSeconds: number | null;
+}
+
+export type SafetyReviewStatus =
+  | 'PENDING'
+  | 'APPROVED'
+  | 'REJECTED';
+
+export type SafetyReviewSource =
+  | 'HUMAN'
+  | 'AUTOMATED';
+
+export interface CreativeSafetyReview {
+  id: number;
+  creativeId: number;
+  status: SafetyReviewStatus;
+  reviewSource: SafetyReviewSource;
+  reason: string | null;
+  score: number | null;
+  modelVersion: string | null;
+  policyVersion: string | null;
+  reviewer: string | null;
+  createdAt: string | null;
+  reviewedAt: string | null;
+}
+
+export interface SafetyReviewDecisionRequest {
+  status: SafetyReviewStatus;
+  reviewer: string;
+  reason: string | null;
+}
