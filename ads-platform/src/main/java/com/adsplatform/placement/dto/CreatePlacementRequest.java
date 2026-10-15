@@ -12,17 +12,24 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
 public record CreatePlacementRequest(
+
     @NotBlank(message = "Placement name is required")
     String name,
+    
     @NotNull(message = "Placement type is required")
     PlacementType type,
-    @Positive(message = "Max Ads must be greater than 0")
+
+    @NotNull (message = "Max Ads is required")
+    @Positive(message = "Max Ads must be greater than zero")
     Integer maxAds,
-    @Positive(message = "Duration must be greater than 0")
-    Integer durationSeconds,
-    @NotEmpty(message = "At least one supported device is required")
+
+    @Positive(message = "Max ad duration seconds must be greater than zero")
+    Integer maxAdDurationSeconds,
+
+    @NotEmpty(message = "Placement must support at least one device")
     Set<DeviceType> supportedDevices,
-    @NotEmpty(message = "At least one supported creative type is required")
+
+    @NotEmpty(message = "Placement must support at least one creative type")
     Set<CreativeType> supportedCreativeTypes) {
     
 }

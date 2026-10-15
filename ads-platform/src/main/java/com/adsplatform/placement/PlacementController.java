@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.adsplatform.common.ApiResponse;
 import com.adsplatform.placement.dto.CreatePlacementRequest;
+import com.adsplatform.placement.dto.PlacementResponse;
 import com.adsplatform.placement.dto.UpdatePlacementRequest;
 
 import jakarta.validation.Valid;
@@ -31,54 +32,50 @@ public class PlacementController {
     private final PlacementService placementService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<Placement>>> getAllPlacements() {
+    public ResponseEntity<ApiResponse<List<PlacementResponse>>> getAllPlacements() {
         return ResponseEntity.ok(
                 ApiResponse.ok(placementService.getAllPlacements()));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<Placement>> getPlacementById(@PathVariable Long id) {
-        return placementService.getPlacementById(id)
-                .map(placement -> ResponseEntity.ok(ApiResponse.ok(placement)))
-                .orElseGet(() -> ResponseEntity.notFound().build());
+    public ResponseEntity<ApiResponse<PlacementResponse>> getPlacementById(@PathVariable Long id) {
+        return ResponseEntity.ok(
+                ApiResponse.ok(placementService.getPlacementById(id)));
     }
 
     @GetMapping("/active")
-    public ResponseEntity<ApiResponse<List<Placement>>> getActivePlacements() {
+    public ResponseEntity<ApiResponse<List<PlacementResponse>>> getActivePlacements() {
         return ResponseEntity.ok(
                 ApiResponse.ok(placementService.getActivePlacements()));
     }
 
     @GetMapping("/active/type/{type}")
-    public ResponseEntity<ApiResponse<List<Placement>>> getActivePlacementsByType(@PathVariable PlacementType type) {
+    public ResponseEntity<ApiResponse<List<PlacementResponse>>> getActivePlacementsByType(@PathVariable PlacementType type) {
         return ResponseEntity.ok(
                 ApiResponse.ok(placementService.getActivePlacementsByType(type)));
     }
 
     @PostMapping
-    public ResponseEntity<ApiResponse<Placement>> createPlacement(
+    public ResponseEntity<ApiResponse<PlacementResponse>> createPlacement(
             @Valid @RequestBody CreatePlacementRequest request) {
-        Placement createdPlacement = placementService.createPlacement(request);
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(ApiResponse.ok(createdPlacement));
+                .body(ApiResponse.ok(placementService.createPlacement(request)));
     }
 
     @PatchMapping("/{id}/active")
-    public ResponseEntity<ApiResponse<Placement>> updatePlacementActiveStatus(
+    public ResponseEntity<ApiResponse<PlacementResponse>> updatePlacementActiveStatus(
             @PathVariable Long id,
             @RequestParam boolean active) {
-        return placementService.updatePlacementActiveStatus(id, active)
-                .map(placement -> ResponseEntity.ok(ApiResponse.ok(placement)))
-                .orElseGet(() -> ResponseEntity.notFound().build());
+        return ResponseEntity.ok(
+                ApiResponse.ok(placementService.updatePlacementActiveStatus(id, active)));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<Placement>> updatePlacement(
+    public ResponseEntity<ApiResponse<PlacementResponse>> updatePlacement(
             @PathVariable Long id,
             @Valid @RequestBody UpdatePlacementRequest request) {
-        return placementService.updatePlacement(id, request)
-                .map(placement -> ResponseEntity.ok(ApiResponse.ok(placement)))
-                .orElseGet(() -> ResponseEntity.notFound().build());
+        return ResponseEntity.ok(
+                ApiResponse.ok(placementService.updatePlacement(id, request)));
     }
 }
