@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import MetricCard from '../components/MetricCard';
+import FormField from '../components/FormField';
 
 import {
   createPlacement,
@@ -15,6 +16,15 @@ import {
   PlacementRequest,
   PlacementType,
 } from '../types';
+
+import {
+  acceptsVideo,
+  toggleCreativeType as toggleCreativeTypeInForm,
+} from '../utils/placementForm';
+
+// The API client rejects with the backend's error message as a string.
+const toErrorMessage = (error: unknown): string =>
+  typeof error === 'string' ? error : 'Something went wrong';
 
 const placementTypes: PlacementType[] = [
   'PRE_ROLL',
@@ -45,7 +55,7 @@ const getInitialForm = (): PlacementRequest => ({
   name: '',
   type: 'PRE_ROLL',
   maxAds: 1,
-  durationSeconds: 30,
+  maxAdDurationSeconds: 30,
   supportedDevices: ['TV'],
   supportedCreativeTypes: ['VIDEO'],
 });
@@ -62,6 +72,8 @@ export default function PlacementsPage() {
   const [form, setForm] =
     useState<PlacementRequest>(getInitialForm());
 
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     getPlacements()
       .then(setPlacements)
@@ -72,12 +84,14 @@ export default function PlacementsPage() {
     setForm(getInitialForm());
     setEditingPlacementId(null);
     setShowForm(false);
+    setError(null);
   };
 
   const handleNewPlacement = () => {
     setForm(getInitialForm());
     setEditingPlacementId(null);
     setShowForm(true);
+    setError(null);
   };
 
   const handleEdit = (placement: Placement) => {
@@ -87,7 +101,7 @@ export default function PlacementsPage() {
       name: placement.name,
       type: placement.type,
       maxAds: placement.maxAds,
-      durationSeconds: placement.durationSeconds,
+      maxAdDurationSeconds: placement.maxAdDurationSeconds,
       supportedDevices: [...placement.supportedDevices],
       supportedCreativeTypes: [
         ...placement.supportedCreativeTypes,
@@ -95,6 +109,7 @@ export default function PlacementsPage() {
     });
 
     setShowForm(true);
+    setError(null);
   };
 
   const handleActiveToggle = async (placement: Placement) => {
@@ -124,11 +139,8 @@ export default function PlacementsPage() {
             : currentPlacement
         )
       );
-    } catch (error) {
-      console.error(
-        'Failed to update placement status:',
-        error
-      );
+    } catch (requestError) {
+      setError(toErrorMessage(requestError));
     }
   };
 
@@ -138,8 +150,13 @@ export default function PlacementsPage() {
       form.supportedDevices.length === 0 ||
       form.supportedCreativeTypes.length === 0
     ) {
+      setError(
+        'Name, at least one device and at least one creative type are required'
+      );
       return;
     }
+
+    setError(null);
 
     try {
       if (editingPlacementId !== null) {
@@ -173,13 +190,8 @@ export default function PlacementsPage() {
       }
 
       resetForm();
-    } catch (error) {
-      console.error(
-        editingPlacementId !== null
-          ? 'Failed to update placement:'
-          : 'Failed to create placement:',
-        error
-      );
+    } catch (requestError) {
+      setError(toErrorMessage(requestError));
     }
   };
 
@@ -206,25 +218,9 @@ export default function PlacementsPage() {
   const toggleCreativeType = (
     creativeType: CreativeType
   ) => {
-    setForm((currentForm) => {
-      const alreadySelected =
-        currentForm.supportedCreativeTypes.includes(
-          creativeType
-        );
-
-      return {
-        ...currentForm,
-        supportedCreativeTypes: alreadySelected
-          ? currentForm.supportedCreativeTypes.filter(
-              (currentType) =>
-                currentType !== creativeType
-            )
-          : [
-              ...currentForm.supportedCreativeTypes,
-              creativeType,
-            ],
-      };
-    });
+    setForm((currentForm) =>
+      toggleCreativeTypeInForm(currentForm, creativeType)
+    );
   };
 
   if (loading) {
@@ -318,6 +314,24 @@ export default function PlacementsPage() {
         </button>
       </div>
 
+      {/* Error from the last action */}
+      {error && (
+        <div
+          role="alert"
+          style={{
+            fontSize: 12,
+            color: '#f0a0a0',
+            background: '#2a1515',
+            border: '0.5px solid #5a2a2a',
+            borderRadius: 6,
+            padding: '8px 12px',
+            marginBottom: 16,
+          }}
+        >
+          {error}
+        </div>
+      )}
+
       {/* Create / Edit form */}
       {showForm && (
         <div
@@ -351,104 +365,115 @@ export default function PlacementsPage() {
               marginBottom: 16,
             }}
           >
-            <input
-              placeholder="Placement name"
-              value={form.name}
-              onChange={(event) =>
-                setForm({
-                  ...form,
-                  name: event.target.value,
-                })
-              }
-              style={{
-                fontSize: 12,
-                background: '#1a1a1a',
-                color: '#e5e5e5',
-                border: '0.5px solid #2a2a2a',
-                borderRadius: 6,
-                padding: '7px 10px',
-              }}
-            />
+            <FormField label="Placement name">
+              <input
+                placeholder="Placement name"
+                value={form.name}
+                onChange={(event) =>
+                  setForm({
+                    ...form,
+                    name: event.target.value,
+                  })
+                }
+                style={{
+                  fontSize: 12,
+                  background: '#1a1a1a',
+                  color: '#e5e5e5',
+                  border: '0.5px solid #2a2a2a',
+                  borderRadius: 6,
+                  padding: '7px 10px',
+                }}
+              />
+            </FormField>
 
-            <select
-              value={form.type}
-              onChange={(event) =>
-                setForm({
-                  ...form,
-                  type: event.target
-                    .value as PlacementType,
-                })
-              }
-              style={{
-                fontSize: 12,
-                background: '#1a1a1a',
-                color: '#e5e5e5',
-                border: '0.5px solid #2a2a2a',
-                borderRadius: 6,
-                padding: '7px 10px',
-              }}
-            >
-              {placementTypes.map((type) => (
-                <option
-                  key={type}
-                  value={type}
-                >
-                  {type.replaceAll('_', ' ')}
-                </option>
-              ))}
-            </select>
+            <FormField label="Placement type">
+              <select
+                value={form.type}
+                onChange={(event) =>
+                  setForm({
+                    ...form,
+                    type: event.target
+                      .value as PlacementType,
+                  })
+                }
+                style={{
+                  fontSize: 12,
+                  background: '#1a1a1a',
+                  color: '#e5e5e5',
+                  border: '0.5px solid #2a2a2a',
+                  borderRadius: 6,
+                  padding: '7px 10px',
+                }}
+              >
+                {placementTypes.map((type) => (
+                  <option
+                    key={type}
+                    value={type}
+                  >
+                    {type.replaceAll('_', ' ')}
+                  </option>
+                ))}
+              </select>
+            </FormField>
 
-            <input
-              type="number"
-              min="1"
-              placeholder="Max ads"
-              value={form.maxAds ?? ''}
-              onChange={(event) =>
-                setForm({
-                  ...form,
-                  maxAds:
-                    event.target.value === ''
-                      ? null
-                      : Number(
-                          event.target.value
-                        ),
-                })
-              }
-              style={{
-                fontSize: 12,
-                background: '#1a1a1a',
-                color: '#e5e5e5',
-                border: '0.5px solid #2a2a2a',
-                borderRadius: 6,
-                padding: '7px 10px',
-              }}
-            />
+            <FormField label="Max ads" hint="Ads shown per break">
+              <input
+                type="number"
+                min="1"
+                placeholder="Max ads"
+                value={form.maxAds ?? ''}
+                onChange={(event) =>
+                  setForm({
+                    ...form,
+                    maxAds:
+                      event.target.value === ''
+                        ? null
+                        : Number(
+                            event.target.value
+                          ),
+                  })
+                }
+                style={{
+                  fontSize: 12,
+                  background: '#1a1a1a',
+                  color: '#e5e5e5',
+                  border: '0.5px solid #2a2a2a',
+                  borderRadius: 6,
+                  padding: '7px 10px',
+                }}
+              />
+            </FormField>
 
-            <input
-              type="number"
-              min="1"
-              placeholder="Duration (seconds)"
-              value={form.durationSeconds ?? ''}
-              onChange={(event) =>
-                setForm({
-                  ...form,
-                  durationSeconds:
-                    event.target.value === ''
-                      ? null
-                      : Number(
-                          event.target.value
-                        ),
-                })
-              }
-              style={{
-                fontSize: 12,
-                background: '#1a1a1a',
-                color: '#e5e5e5',
-                border: '0.5px solid #2a2a2a',
-                borderRadius: 6,
-                padding: '7px 10px',
-              }}
-            />
+            {/* A max ad duration only applies when the placement accepts video */}
+            {acceptsVideo(form.supportedCreativeTypes) && (
+              <FormField label="Max ad duration (seconds)" hint="Longest video allowed">
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="Max ad duration (seconds)"
+                  value={form.maxAdDurationSeconds ?? ''}
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      maxAdDurationSeconds:
+                        event.target.value === ''
+                          ? null
+                          : Number(
+                              event.target.value
+                            ),
+                    })
+                  }
+                  style={{
+                    fontSize: 12,
+                    background: '#1a1a1a',
+                    color: '#e5e5e5',
+                    border: '0.5px solid #2a2a2a',
+                    borderRadius: 6,
+                    padding: '7px 10px',
+                  }}
+                />
+              </FormField>
+            )}
           </div>
 
           {/* Supported devices */}
@@ -769,9 +794,18 @@ export default function PlacementsPage() {
                   textAlign: 'right',
                 }}
               >
-                {placement.durationSeconds !==
+                <div
+                  style={{
+                    fontSize: 10,
+                    color: '#666',
+                    marginBottom: 4,
+                  }}
+                >
+                  MAX AD
+                </div>
+                {placement.maxAdDurationSeconds !==
                 null
-                  ? `${placement.durationSeconds}s`
+                  ? `${placement.maxAdDurationSeconds}s`
                   : '—'}
               </div>
 
@@ -783,6 +817,15 @@ export default function PlacementsPage() {
                   textAlign: 'right',
                 }}
               >
+                <div
+                  style={{
+                    fontSize: 10,
+                    color: '#666',
+                    marginBottom: 4,
+                  }}
+                >
+                  MAX ADS
+                </div>
                 {placement.maxAds !== null
                   ? `${placement.maxAds} ads`
                   : '—'}

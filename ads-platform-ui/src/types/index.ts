@@ -1,17 +1,21 @@
 export interface Campaign {
-    id: number;
-    name: string;
-    advertiser: string;
-    agency: string;
-    budget: number;
-    flightStart: string;
-    flightEnd: string;
-    status: 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'AT_RISK' | 'PACING_LOW';
-    pacingPercent: number;
-    impressionsDelivered: number;
-    impressionsGoal: number;
-    createdAt: string;
-    updatedAt: string;
+  id: number;
+  name: string;
+  advertiser: string;
+  agency: string;
+  budget: number;
+  flightStart: string;
+  flightEnd: string;
+  status: 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'AT_RISK' | 'PACING_LOW';
+  pacingPercent: number;
+  impressionsDelivered: number;
+  impressionsGoal: number;
+  targetShowIds: string[];
+  targetingSegments: string[];
+  targetPlacementIds: number[];
+  targetDeviceTypes: DeviceType[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface SafetyFlag {
@@ -107,7 +111,7 @@ export interface Placement {
     type: PlacementType;
     active: boolean;
     maxAds: number | null;
-    durationSeconds: number | null;
+    maxAdDurationSeconds: number | null;
     supportedDevices: DeviceType[];
     supportedCreativeTypes: CreativeType[];
 }
@@ -116,7 +120,7 @@ export interface PlacementRequest {
     name: string;
     type: PlacementType;
     maxAds: number | null;
-    durationSeconds: number | null;
+    maxAdDurationSeconds: number | null;
     supportedDevices: DeviceType[];
     supportedCreativeTypes: CreativeType[];
 }
