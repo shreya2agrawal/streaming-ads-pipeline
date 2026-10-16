@@ -1,0 +1,57 @@
+spring:
+  application:
+    name: ads-platform
+
+  datasource:
+    url: jdbc:postgresql://localhost:5433/adsplatform
+    username: ads_user
+    password: ads_pass
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        default_batch_fetch_size: 50
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: ads-platform-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:dummy-key-for-now}
+
+server:
+  port: 8080
+
+ads:
+  safety:
+    vector:
+      safe-threshold: 0.75
+      review-threshold: 0.50
+
+logging:
+  level:
+    com.adsplatform: DEBUG
