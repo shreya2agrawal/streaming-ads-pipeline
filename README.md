@@ -2,9 +2,9 @@
 
 An ad serving and campaign management platform for a streaming video service.
 When a viewer reaches an ad break, a player asks the platform for ads. The platform
-finds the ads allowed to serve there, ranks them by expected value, records the
-decision, and charges the advertiser only when a viewer clicks, exactly once and
-never beyond the campaign's budget.
+finds the ads allowed to serve there, ranks them, records the decision, and charges
+the advertiser only when a viewer clicks, exactly once and never beyond the
+campaign's budget.
 
 Built with Java, Spring Boot, PostgreSQL, React and TypeScript, with Kafka, Redis,
 Spark and a Python CTR model in the wider data pipeline.
@@ -18,8 +18,9 @@ Player reaches an ad break
                                         budget left, active and approved creatives
   -> eligibility rules                  status, flight dates, placement, device, creative
                                         type and length, safety approval, targeting
-  -> CTR scoring                        predicted click-through rate per candidate
-  -> ranking                            bid x pCTR, one creative per campaign
+  -> CTR scoring                        click-through rate per candidate, behind a scoring
+                                        interface (a fixed prior today, see Status)
+  -> ranking                            bid x CTR, one creative per campaign
   -> slot filling + decision record     each slot gets an unguessable click token
   -> response                           media and click URL for each ad
 
@@ -34,8 +35,11 @@ Viewer clicks the ad
 
 - **Hard rules before scoring.** Eligibility is deterministic and cheap; scoring is
   expensive. A model never scores an ad that is not allowed to serve.
-- **The model predicts, the platform decides.** Scoring sits behind a `CtrScoringPort`
-  and only returns probabilities. Bids, ranking and budgets are business logic in Java.
+- **Scoring is a separate, replaceable step.** It sits behind a `CtrScoringPort` that
+  scores all candidates in one batch and only returns probabilities; bids, ranking and
+  budgets stay in Java. Today it returns a fixed prior, so ranking is effectively by bid.
+  A model trained on the platform's own impressions and clicks replaces it behind the
+  same interface.
 - **One class per eligibility rule.** Rules implement `EligibilityRule` and run in
   order. Adding a rule needs no change to the engine.
 - **Every rejection has a reason code.** `IneligibilityReason` codes make
@@ -130,14 +134,15 @@ concurrent clicks never overspend. The integration tests need the local PostgreS
 
 - Campaign, creative, placement, media plan and inventory management
 - Creative safety review workflow with review history
-- Serving: candidate retrieval, eligibility rules with reason codes, ranking, slot filling
+- Serving: candidate retrieval, eligibility rules with reason codes, batch scoring
+  interface, ranking (bid x CTR, with CTR currently a fixed prior), slot filling
 - Decision recording (including no-fills), click tracking with idempotent, budget-safe charging
 - Demo player with decision explanations
 
 **Designed, next**
 
-- Impression tracking, then a CTR model trained on the platform's own impressions and clicks
-  (the current scorer uses a fixed prior)
+- Impression tracking, then a CTR model trained on the platform's own impressions and
+  clicks, plugged in behind the existing scoring interface
 - Per-campaign time zones, including viewer-local scheduling for global campaigns
 - Campaign targeting as placement and device pairs, so impossible combinations cannot be saved
 - Typed decision and click events to Kafka through a transactional outbox
@@ -146,5 +151,5 @@ concurrent clicks never overspend. The integration tests need the local PostgreS
 **Known limitations**
 
 - The offline pipeline trains on a public display-ads dataset (Avazu), whose features do
-  not match the serving request, so the model is not yet wired into serving
+  not match the serving request, so that model is not wired into serving
 - A few known pipeline issues (ETL reruns, Spark aggregate upserts) are tracked for cleanup
