@@ -1,267 +1,150 @@
-# Netflix Ads Platform
+# Streaming Ads Platform
 
-A full-stack advertising platform simulating Netflix's ad-supported tier. Advertisers buy ad slots inside Netflix shows. The platform manages campaigns, tracks inventory, predicts click-through rates, and processes ad impression events in real time.
+An ad serving and campaign management platform for a streaming video service.
+When a viewer reaches an ad break, a player asks the platform for ads. The platform
+finds the ads allowed to serve there, ranks them by expected value, records the
+decision, and charges the advertiser only when a viewer clicks, exactly once and
+never beyond the campaign's budget.
 
-Built with Java Spring Boot, React, Apache Kafka, PySpark, and scikit-learn.
+Built with Java, Spring Boot, PostgreSQL, React and TypeScript, with Kafka, Redis,
+Spark and a Python CTR model in the wider data pipeline.
 
----
+## How a request flows
 
-## Architecture
+```text
+Player reaches an ad break
+  -> POST /api/v1/ad-decisions          (placement, device, show, viewer segments, slots)
+  -> candidate retrieval                one bounded query: active campaigns with a bid and
+                                        budget left, active and approved creatives
+  -> eligibility rules                  status, flight dates, placement, device, creative
+                                        type and length, safety approval, targeting
+  -> CTR scoring                        predicted click-through rate per candidate
+  -> ranking                            bid x pCTR, one creative per campaign
+  -> slot filling + decision record     each slot gets an unguessable click token
+  -> response                           media and click URL for each ad
 
-```
-React UI (TypeScript)
-        │  REST API
-        ▼
-Spring Boot Backend (Java 21)
-  ├── Campaigns, Inventory, Media Plans, Brand Safety
-  ├── Kafka → publishes events on every state change
-  ├── PostgreSQL → persistent storage
-  ├── Redis → inventory slot caching
-  └── OpenAI → AI-driven insights
-        │
-        ▼
-Python Data Engineering Layer
-  ├── ETL Pipeline → loads 40M Avazu impression rows into PostgreSQL
-  ├── ML Scoring Service (FastAPI) → CTR prediction, BID_HIGH/NORMAL/LOW
-  ├── Spark Pipeline → reads Kafka impression-events, 5-min window aggregation
-  └── Airflow DAG → daily ETL + ML retraining schedule
-```
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Frontend | React 19, TypeScript, Recharts, React Router |
-| Backend | Java 21, Spring Boot 3.5, Lombok |
-| Database | PostgreSQL 16, Redis |
-| Messaging | Apache Kafka |
-| Stream Processing | Apache Spark 3.5 (PySpark Structured Streaming) |
-| ML Service | Python, FastAPI, scikit-learn (Gradient Boosting) |
-| Orchestration | Apache Airflow |
-| Schema Management | Flyway |
-| Infrastructure | Docker Compose |
-
----
-
-## Project Structure
-
-```
-Netflix Ads Project/
-│
-├── ads-platform/                        # Java Spring Boot backend
-│   ├── src/main/java/com/adsplatform/
-│   │   ├── campaign/                    # Campaign lifecycle management
-│   │   ├── inventory/                   # Slot tracking + ML bid signals
-│   │   ├── mediaplan/                   # Media plan + flight scheduling
-│   │   ├── safety/                      # Brand safety flags
-│   │   └── kafka/                       # Event consumers
-│   ├── src/main/resources/
-│   │   ├── application.yaml             # Spring Boot config + Flyway
-│   │   └── db/migration/
-│   │       └── V1__init_schema.sql      # Full schema (Flyway managed)
-│   └── docker-compose.yml               # PostgreSQL, Redis, Kafka, Zookeeper, Airflow
-│
-├── ads-platform-ui/                     # React TypeScript frontend
-│   └── src/
-│       ├── pages/                       # Overview, Campaigns, Inventory, Safety, Insights, MediaPlan
-│       ├── components/                  # Sidebar, MetricCard, StatusBadge
-│       └── api/                         # Axios client + typed API calls
-│
-└── big-data-python/                     # Python data engineering layer
-    ├── requirements.txt                 # All Python dependencies
-    ├── etl_pipeline.py                  # Batch ETL: Avazu CSV → PostgreSQL (40M rows)
-    ├── ml_scoring_service.py            # FastAPI CTR prediction microservice
-    ├── spark_pipeline.py                # PySpark Structured Streaming: Kafka → PostgreSQL
-    └── dags/
-        └── ads_pipeline_dag.py          # Airflow DAG: daily ETL + ML retraining
+Viewer clicks the ad
+  -> GET /api/v1/clicks/{token}
+  -> click recorded once                a repeated click is never charged again
+  -> campaign charged                   at most what is left of the budget
+  -> 302 redirect to the advertiser
 ```
 
----
+## Design decisions
 
-## Data Flow
+- **Hard rules before scoring.** Eligibility is deterministic and cheap; scoring is
+  expensive. A model never scores an ad that is not allowed to serve.
+- **The model predicts, the platform decides.** Scoring sits behind a `CtrScoringPort`
+  and only returns probabilities. Bids, ranking and budgets are business logic in Java.
+- **One class per eligibility rule.** Rules implement `EligibilityRule` and run in
+  order. Adding a rule needs no change to the engine.
+- **Every rejection has a reason code.** `IneligibilityReason` codes make
+  "why didn't my ad serve?" answerable, and countable.
+- **Charged exactly once.** Clicks are claimed with a unique token and
+  `INSERT ... ON CONFLICT DO NOTHING`, so a retried or double click is charged once.
+- **Never beyond budget.** Charging locks the campaign row, so concurrent clicks cannot
+  both read the old spend. A database CHECK (`spent <= budget`) is the final guard.
+- **Check in code, guarantee in the database.** Unique placement names, one ad per
+  campaign per decision, and spend limits are all enforced by constraints as well as code.
+- **Entities protect their own rules.** For example, `Placement` has no setters; it can
+  only be created or changed through methods that validate everything first.
+- **Money is `BigDecimal`.** Floating point cannot represent cents exactly.
+- **Flight dates use a platform time zone**, not UTC, so a campaign ending on a date
+  serves through that whole evening.
 
+## Repository layout
+
+```text
+ads-platform/        Spring Boot backend: campaigns, creatives, placements, safety
+                     review, media plans, inventory, serving (decisions and clicks)
+ads-platform-ui/     React + TypeScript operations UI, including the demo player
+big-data-python/     ETL, Spark streaming aggregation, Airflow DAG, FastAPI CTR model
 ```
-1. Advertiser creates campaign via React UI
-2. Spring Boot saves to PostgreSQL, publishes event to Kafka
-3. Ad is served → impression event published to impression-events Kafka topic
-4. Spark reads impression-events continuously
-5. Spark aggregates into 5-minute windows (impressions, clicks, CTR per show)
-6. Spark writes aggregated results to campaign_metrics_aggregated table
-7. ML service reads this table and retrains CTR prediction model
-8. Spring Boot calls /predict → returns BID_HIGH / BID_NORMAL / BID_LOW
-9. React UI shows bid signals on Inventory page
-```
 
----
+## Running locally
 
-## Dataset
-
-The ETL pipeline uses the **Avazu CTR Prediction** dataset (Kaggle) — 40 million real ad impression rows with click labels. This dataset is not included in the repository due to its size (5.9 GB).
-
-Download it from: `https://www.kaggle.com/c/avazu-ctr-prediction/data`
-
-Place the extracted file at: `big-data-python/data/train.csv`
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- Java 21+
-- Node.js 18+
-- Python 3.11+
-- Docker + Docker Compose
-
-### 1. Start all infrastructure
+**Prerequisites:** Java 21, Node.js, Docker.
 
 ```bash
+# 1. Infrastructure (from ads-platform/)
 cd ads-platform
-docker-compose up -d
-```
+docker compose up -d postgres redis zookeeper kafka
 
-Starts PostgreSQL (5433), Redis (6379), Kafka (9092), Zookeeper, and Airflow (8090).
-
-### 2. Run the Spring Boot backend
-
-```bash
-cd ads-platform
-export OPENAI_API_KEY=your_key_here
+# 2. Backend (applies database migrations on startup)
 ./mvnw spring-boot:run
-```
 
-Flyway automatically runs `V1__init_schema.sql` on first startup and creates all tables.
-
-Backend runs on `http://localhost:8080`
-
-### 3. Run the React frontend
-
-```bash
+# 3. UI (in a second terminal)
 cd ads-platform-ui
 npm install
 npm start
 ```
 
-UI runs on `http://localhost:3000`
+The backend runs on `http://localhost:8080`, the UI on `http://localhost:3000`.
+Database migrations are in `ads-platform/src/main/resources/db/migration` and run
+automatically through Flyway.
 
-### 4. Set up the Python environment
+### Try the demo player
 
-```bash
-cd big-data-python
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
+1. In the UI, make sure a placement is **active** (Placements page).
+2. Give a campaign a bid and activate it, and give it a creative that is **active** and
+   **safety approved** (Creatives page, then the Brand safety review).
+3. Open **Demo player**, choose the placement and a show the campaign targets, press
+   **Play**. At the ad break, the player calls the real decision API, and the
+   **Why this ad?** panel shows the score of each winner and why other campaigns
+   were excluded. **Learn more** goes through click tracking.
 
-### 5. Run the ETL pipeline
-
-Download the Avazu dataset and place it at `big-data-python/data/train.csv`, then:
-
-```bash
-python etl_pipeline.py
-```
-
-Loads 40 million rows into PostgreSQL in ~90 minutes using 100K-row chunks.
-
-### 6. Run the ML scoring service
+### Call the API directly
 
 ```bash
-python ml_scoring_service.py
+# Request ads (debug=true adds the decision explanation)
+curl -s -X POST "localhost:8080/api/v1/ad-decisions?debug=true" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "placementId": 1,
+    "deviceType": "TV",
+    "showId": "show-711",
+    "audienceSegments": ["HOME_IMPROVEMENT"],
+    "availableSlots": 2
+  }'
+
+# Click a served ad (use a clickUrl from the response)
+curl -i localhost:8080/api/v1/clicks/<token>
 ```
 
-Service runs on `http://localhost:8000`
-
-Train the model after ETL completes:
+## Tests
 
 ```bash
-curl -X POST http://localhost:8000/retrain
+cd ads-platform
+./mvnw test
 ```
 
-### 7. Create the Kafka impression-events topic
+Unit tests cover the entity rules, eligibility rules, ranking, slot filling and click
+charging. Integration tests start the full application, and the click concurrency tests
+run two threads against PostgreSQL to verify that a click is charged once and that
+concurrent clicks never overspend. The integration tests need the local PostgreSQL from
+`docker compose`.
 
-```bash
-docker exec ads-platform-kafka-1 kafka-topics \
-  --create --topic impression-events \
-  --bootstrap-server localhost:9092 \
-  --partitions 1 --replication-factor 1
-```
+## Status
 
-### 8. Run the Spark pipeline
+**Built and tested**
 
-```bash
-python spark_pipeline.py
-```
+- Campaign, creative, placement, media plan and inventory management
+- Creative safety review workflow with review history
+- Serving: candidate retrieval, eligibility rules with reason codes, ranking, slot filling
+- Decision recording (including no-fills), click tracking with idempotent, budget-safe charging
+- Demo player with decision explanations
 
-Spark connects to Kafka, reads impression events, aggregates them in 5-minute windows, and writes results to PostgreSQL continuously.
+**Designed, next**
 
----
+- Impression tracking, then a CTR model trained on the platform's own impressions and clicks
+  (the current scorer uses a fixed prior)
+- Per-campaign time zones, including viewer-local scheduling for global campaigns
+- Campaign targeting as placement and device pairs, so impossible combinations cannot be saved
+- Typed decision and click events to Kafka through a transactional outbox
+- Redis serving index and spend counters once load testing shows the database is the bottleneck
 
-## API Reference
+**Known limitations**
 
-### Spring Boot Backend (`localhost:8080`)
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/api/campaigns` | List all campaigns |
-| POST | `/api/campaigns` | Create campaign |
-| PATCH | `/api/campaigns/:id/status` | Update campaign status |
-| GET | `/api/inventory` | List inventory with fill rates |
-| GET | `/api/inventory/stats` | Aggregate inventory stats |
-| GET | `/api/safety/flags` | Brand safety flags |
-| POST | `/api/safety/check` | Check content safety |
-| GET | `/api/media-plans` | List media plans |
-| POST | `/api/media-plans` | Create media plan |
-
-### ML Scoring Service (`localhost:8000`)
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/health` | Service health + model status |
-| POST | `/predict` | Predict BID_HIGH/NORMAL/LOW for an ad slot |
-| POST | `/retrain` | Retrain model on latest PostgreSQL data |
-| GET | `/model/info` | Model type, features, thresholds |
-
----
-
-## ML Model
-
-- **Algorithm**: Gradient Boosting Classifier (scikit-learn)
-- **Training data**: 5 million rows from Avazu CTR dataset
-- **Accuracy**: 82.76%
-- **Features**: banner position, device type, connection type, audience segments
-- **Output**:
-  - `BID_HIGH` — predicted CTR ≥ 8%
-  - `BID_NORMAL` — predicted CTR 4–8%
-  - `BID_LOW` — predicted CTR < 4%
-
----
-
-## Kafka Topics
-
-| Topic | Producer | Consumer | Purpose |
-|---|---|---|---|
-| `campaign-events` | Spring Boot | CampaignEventConsumer | Campaign lifecycle events |
-| `mediaplan-events` | Spring Boot | MediaPlanEventConsumer | Media plan state changes |
-| `safety-events` | Spring Boot | SafetyEventConsumer | Brand safety flags |
-| `impression-events` | Spring Boot | Spark pipeline | Real-time ad impression events |
-
----
-
-## Environment Variables
-
-| Variable | Default | Description |
-|---|---|---|
-| `OPENAI_API_KEY` | — | Required for AI insights feature |
-| `DATABASE_URL` | `postgresql://ads_user:ads_pass@localhost:5433/adsplatform` | Python services DB connection |
-| `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka broker address |
-| `KAFKA_TOPIC` | `impression-events` | Spark pipeline topic |
-
----
-
-## Author
-
-Shreya Agrawal — [agrawal.shrey@northeastern.edu](mailto:agrawal.shrey@northeastern.edu)
-
-GitHub: [shreya2agrawal/streaming-ads-pipeline](https://github.com/shreya2agrawal/streaming-ads-pipeline)
+- The offline pipeline trains on a public display-ads dataset (Avazu), whose features do
+  not match the serving request, so the model is not yet wired into serving
+- A few known pipeline issues (ETL reruns, Spark aggregate upserts) are tracked for cleanup
