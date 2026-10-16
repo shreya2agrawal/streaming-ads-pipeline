@@ -9,6 +9,7 @@ import InventoryPage from './pages/InventoryPage';
 import InsightsPage from './pages/InsightsPage';
 import PlacementsPage from './pages/PlacementsPage';
 import CreativesPage from './pages/CreativesPage';
+import DemoPlayerPage from './pages/DemoPlayerPage';
 
 export default function App() {
   return (
@@ -36,6 +37,7 @@ export default function App() {
             <Route path="/placements" element={<PlacementsPage />} />
             <Route path="/plans" element={<MediaPlanPage />} />
             <Route path="/insights" element={<InsightsPage/>} />
+            <Route path="/demo-player" element={<DemoPlayerPage />} />
           </Routes>
         </main>
       </div>
