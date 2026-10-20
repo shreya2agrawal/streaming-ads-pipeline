@@ -32,7 +32,8 @@ public record AdDecisionResponse(
             CreativeType creativeType,
             String mediaUrl,
             Integer durationSeconds,
-            String clickUrl) {
+            String clickUrl,
+            String impressionUrl) {
     }
 
     public record Explanation(

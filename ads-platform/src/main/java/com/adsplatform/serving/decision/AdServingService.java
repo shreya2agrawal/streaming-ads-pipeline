@@ -36,6 +36,7 @@ import lombok.RequiredArgsConstructor;
 public class AdServingService {
 
     static final String CLICK_PATH = "/api/v1/clicks/";
+    static final String IMPRESSION_PATH = "/api/v1/impressions/";
 
     /*
      * Click tokens must be unguessable: anyone who could predict one
@@ -103,7 +104,8 @@ public class AdServingService {
                             creative.getCreativeType(),
                             creative.getMediaUrl(),
                             creative.getDurationSeconds(),
-                            CLICK_PATH + slot.getClickToken());
+                            CLICK_PATH + slot.getClickToken(),
+                            IMPRESSION_PATH + slot.getClickToken());
                 })
                 .toList();
 

@@ -48,7 +48,8 @@ class AdDecisionControllerTest {
                 List.of(new AdDecisionResponse.ServedAd(
                         1, 1L, 11L, CreativeType.VIDEO,
                         "https://cdn.example.com/11.mp4", 15,
-                        "/api/v1/clicks/abc123")),
+                        "/api/v1/clicks/abc123",
+                        "/api/v1/impressions/abc123")),
                 null,
                 null);
     }
@@ -66,6 +67,7 @@ class AdDecisionControllerTest {
                 .andExpect(jsonPath("$.data.decisionId")
                         .value("7f3a0000-0000-0000-0000-000000000001"))
                 .andExpect(jsonPath("$.data.ads[0].clickUrl").value("/api/v1/clicks/abc123"))
+                .andExpect(jsonPath("$.data.ads[0].impressionUrl").value("/api/v1/impressions/abc123"))
                 .andExpect(jsonPath("$.data.explanation").doesNotExist());
     }
 
