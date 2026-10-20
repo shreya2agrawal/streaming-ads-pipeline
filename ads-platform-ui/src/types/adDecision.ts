@@ -14,6 +14,10 @@ export interface AdDecisionRequest {
   viewerTimeZone?: string;
 }
 
+/*
+ * impressionUrl: POST here when the ad actually appears.
+ * clickUrl:      open this when the viewer clicks the ad.
+ */
 export interface ServedAd {
   slot: number;
   campaignId: number;
@@ -22,6 +26,7 @@ export interface ServedAd {
   mediaUrl: string;
   durationSeconds: number | null;
   clickUrl: string;
+  impressionUrl: string;
 }
 
 export interface ScoredAd {

@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { toAbsoluteClickUrl } from '../../api/adDecisions';
+import React, { useEffect, useRef, useState } from 'react';
+import { reportImpression, toAbsoluteApiUrl } from '../../api/adDecisions';
 import type { ServedAd } from '../../types/adDecision';
 
 export type PlayerPhase =
@@ -63,7 +63,7 @@ export default function PlayerScreen(props: PlayerScreenProps) {
       )}
 
       {phase === 'ad' && ad && (
-        // key resets the countdown for each new ad
+        // key resets the countdown and the impression flag for each new ad
         <AdView
           key={ad.slot}
           ad={ad}
@@ -150,6 +150,9 @@ function AdView({
   const [secondsLeft, setSecondsLeft] = useState(totalSeconds);
   const [mediaFailed, setMediaFailed] = useState(false);
 
+  // Report at most once per ad, even if the media event fires again.
+  const impressionReported = useRef(false);
+
   // The countdown drives the break, so the demo works even if media fails.
   useEffect(() => {
     if (secondsLeft <= 0) {
@@ -160,10 +163,23 @@ function AdView({
     return () => window.clearTimeout(timer);
   }, [secondsLeft, onFinished]);
 
+  /*
+   * An impression means the ad really appeared: the image finished
+   * loading, or the video started playing. A placeholder shown because
+   * the media failed is not an impression.
+   */
+  const reportImpressionOnce = () => {
+    if (impressionReported.current) {
+      return;
+    }
+    impressionReported.current = true;
+    reportImpression(ad.impressionUrl);
+  };
+
   // The click goes through the platform's tracking URL, which records
   // and charges the click, then redirects to the advertiser.
   const handleLearnMore = () => {
-    window.open(toAbsoluteClickUrl(ad.clickUrl), '_blank', 'noopener,noreferrer');
+    window.open(toAbsoluteApiUrl(ad.clickUrl), '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -174,6 +190,7 @@ function AdView({
           autoPlay
           muted
           playsInline
+          onPlaying={reportImpressionOnce}
           onError={() => setMediaFailed(true)}
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
         />
@@ -183,6 +200,7 @@ function AdView({
         <img
           src={ad.mediaUrl}
           alt="Advertisement"
+          onLoad={reportImpressionOnce}
           onError={() => setMediaFailed(true)}
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
         />
@@ -222,7 +240,7 @@ function AdView({
       <button
         onClick={handleLearnMore}
         disabled={!clickTrackingReady}
-        title={clickTrackingReady ? undefined : 'Click tracking is the next step'}
+        title={clickTrackingReady ? undefined : 'Click tracking is turned off for this demo'}
         style={{
           position: 'absolute',
           bottom: 16,

@@ -9,7 +9,7 @@ import WhyThisAdPanel from '../components/player/WhyThisAdPanel';
 // Seconds of "show" before the ad break.
 const BREAK_AT_SECONDS = 6;
 
-// Flip to true once the click endpoint exists.
+// The click endpoint exists, so "Learn more" goes through click tracking.
 const CLICK_TRACKING_READY = true;
 
 const NO_FILL_PAUSE_MS = 2500;
