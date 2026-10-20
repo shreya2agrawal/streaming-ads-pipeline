@@ -2,9 +2,9 @@
 
 An ad serving and campaign management platform for a streaming video service.
 When a viewer reaches an ad break, a player asks the platform for ads. The platform
-finds the ads allowed to serve there, ranks them, records the decision, and charges
-the advertiser only when a viewer clicks, exactly once and never beyond the
-campaign's budget.
+finds the ads allowed to serve there, ranks them, records the decision, counts the
+ad once it actually appears, and charges the advertiser only when a viewer clicks,
+exactly once and never beyond the campaign's budget.
 
 Built with Java, Spring Boot, PostgreSQL, React and TypeScript, with Kafka, Redis,
 Spark and a Python CTR model in the wider data pipeline.
@@ -21,8 +21,12 @@ Player reaches an ad break
   -> CTR scoring                        click-through rate per candidate, behind a scoring
                                         interface (a fixed prior today, see Status)
   -> ranking                            bid x CTR, one creative per campaign
-  -> slot filling + decision record     each slot gets an unguessable click token
-  -> response                           media and click URL for each ad
+  -> slot filling + decision record     each slot gets an unguessable slot token
+  -> response                           media, impression URL and click URL for each ad
+
+The ad actually appears (image loaded, or video started)
+  -> POST /api/v1/impressions/{token}
+  -> impression recorded once           repeated reports are ignored
 
 Viewer clicks the ad
   -> GET /api/v1/clicks/{token}
@@ -32,6 +36,9 @@ Viewer clicks the ad
 ```
 
 ## Design decisions
+
+For the full architecture, request traces and data model, see
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 - **Hard rules before scoring.** Eligibility is deterministic and cheap; scoring is
   expensive. A model never scores an ad that is not allowed to serve.
@@ -44,12 +51,16 @@ Viewer clicks the ad
   order. Adding a rule needs no change to the engine.
 - **Every rejection has a reason code.** `IneligibilityReason` codes make
   "why didn't my ad serve?" answerable, and countable.
+- **An impression means the ad really appeared.** Chosen is not the same as shown: the
+  player reports when the image has loaded or the video has started, and a slot is
+  counted once.
 - **Charged exactly once.** Clicks are claimed with a unique token and
   `INSERT ... ON CONFLICT DO NOTHING`, so a retried or double click is charged once.
 - **Never beyond budget.** Charging locks the campaign row, so concurrent clicks cannot
   both read the old spend. A database CHECK (`spent <= budget`) is the final guard.
 - **Check in code, guarantee in the database.** Unique placement names, one ad per
-  campaign per decision, and spend limits are all enforced by constraints as well as code.
+  campaign per decision, one impression per slot, and spend limits are all enforced by
+  constraints as well as code.
 - **Entities protect their own rules.** For example, `Placement` has no setters; it can
   only be created or changed through methods that validate everything first.
 - **Money is `BigDecimal`.** Floating point cannot represent cents exactly.
@@ -60,7 +71,8 @@ Viewer clicks the ad
 
 ```text
 ads-platform/        Spring Boot backend: campaigns, creatives, placements, safety
-                     review, media plans, inventory, serving (decisions and clicks)
+                     review, media plans, inventory, serving (decisions, impressions
+                     and clicks)
 ads-platform-ui/     React + TypeScript operations UI, including the demo player
 big-data-python/     ETL, Spark streaming aggregation, Airflow DAG, FastAPI CTR model
 ```
@@ -91,11 +103,14 @@ automatically through Flyway.
 
 1. In the UI, make sure a placement is **active** (Placements page).
 2. Give a campaign a bid and activate it, and give it a creative that is **active** and
-   **safety approved** (Creatives page, then the Brand safety review).
+   **safety approved** (Creatives page, then the Brand safety review). For impressions
+   to be recorded, the creative's media must load: an image placed in
+   `ads-platform-ui/public/` works well.
 3. Open **Demo player**, choose the placement and a show the campaign targets, press
-   **Play**. At the ad break, the player calls the real decision API, and the
-   **Why this ad?** panel shows the score of each winner and why other campaigns
-   were excluded. **Learn more** goes through click tracking.
+   **Play**. At the ad break, the player calls the real decision API, reports the
+   impression when the ad appears, and the **Why this ad?** panel shows the score of
+   each winner and why other campaigns were excluded. **Learn more** goes through click
+   tracking.
 
 ### Call the API directly
 
@@ -111,6 +126,9 @@ curl -s -X POST "localhost:8080/api/v1/ad-decisions?debug=true" \
     "availableSlots": 2
   }'
 
+# Report that a served ad appeared (use an impressionUrl from the response)
+curl -i -X POST localhost:8080/api/v1/impressions/<token>
+
 # Click a served ad (use a clickUrl from the response)
 curl -i localhost:8080/api/v1/clicks/<token>
 ```
@@ -122,11 +140,11 @@ cd ads-platform
 ./mvnw test
 ```
 
-Unit tests cover the entity rules, eligibility rules, ranking, slot filling and click
-charging. Integration tests start the full application, and the click concurrency tests
-run two threads against PostgreSQL to verify that a click is charged once and that
-concurrent clicks never overspend. The integration tests need the local PostgreSQL from
-`docker compose`.
+Unit tests cover the entity rules, eligibility rules, ranking, slot filling, impression
+recording and click charging. Integration tests start the full application, and the
+click concurrency tests run two threads against PostgreSQL to verify that a click is
+charged once and that concurrent clicks never overspend. The integration tests need the
+local PostgreSQL from `docker compose`.
 
 ## Status
 
@@ -136,16 +154,21 @@ concurrent clicks never overspend. The integration tests need the local PostgreS
 - Creative safety review workflow with review history
 - Serving: candidate retrieval, eligibility rules with reason codes, batch scoring
   interface, ranking (bid x CTR, with CTR currently a fixed prior), slot filling
-- Decision recording (including no-fills), click tracking with idempotent, budget-safe charging
+- Decision recording (including no-fills)
+- Impression tracking, counted once per served ad, only when the ad really appears
+- Click tracking with idempotent, budget-safe charging
 - Demo player with decision explanations
 
 **Designed, next**
 
-- Impression tracking, then a CTR model trained on the platform's own impressions and
-  clicks, plugged in behind the existing scoring interface
+- Conversion tracking from advertisers, including cancellations
+- Advertiser stats: impressions, clicks, CTR, spend, conversions and cost per conversion
+- A CTR model trained on the platform's own impressions and clicks, plugged in behind
+  the existing scoring interface
+- Viewability for scrolling placements (at least half the ad on screen for a second)
 - Per-campaign time zones, including viewer-local scheduling for global campaigns
 - Campaign targeting as placement and device pairs, so impossible combinations cannot be saved
-- Typed decision and click events to Kafka through a transactional outbox
+- Typed decision, impression and click events to Kafka through a transactional outbox
 - Redis serving index and spend counters once load testing shows the database is the bottleneck
 
 **Known limitations**
