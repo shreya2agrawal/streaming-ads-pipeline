@@ -26,7 +26,7 @@ export const toAbsoluteApiUrl = (path: string): string =>
  * interrupt the ad, so errors are ignored.
  */
 export const reportImpression = (impressionUrl: string): void => {
-  fetch(toAbsoluteApiUrl(impressionUrl), { method: 'POST' }).catch(() => {
+  fetch(toAbsoluteApiUrl(impressionUrl), { method: 'POST', keepalive: true }).catch(() => {
     // Measurement is best-effort; the viewer's experience comes first.
   });
 };
