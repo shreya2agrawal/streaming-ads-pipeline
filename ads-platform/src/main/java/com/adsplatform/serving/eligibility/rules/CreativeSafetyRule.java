@@ -10,10 +10,6 @@ import com.adsplatform.serving.eligibility.IneligibilityReason;
 import com.adsplatform.serving.model.AdRequestContext;
 import com.adsplatform.serving.model.CandidateAd;
 
-/*
- * Only creatives that completed the safety workflow
- * and were APPROVED may participate in serving.
- */
 @Component
 @Order(50)
 public class CreativeSafetyRule implements EligibilityRule {

@@ -15,16 +15,11 @@ import com.adsplatform.serving.model.AdRequestContext;
 import com.adsplatform.serving.model.CandidateAd;
 
 /*
- * Campaign can serve only during its configured flight window.
- *
- * Start and end dates are inclusive, and are interpreted in the
- * platform time zone. Flight dates carry no zone of their own, so
- * comparing them in UTC would end US campaigns in the evening of
- * their last day and start them the evening before their first.
- *
- * Uses a region ID (e.g. America/New_York), not a fixed offset,
- * so daylight saving time is handled automatically.
+ * Flight dates are inclusive and read in the platform time zone,
+ * set as a region like America/New_York so daylight saving works.
+ * In UTC, US campaigns would stop in the evening of their last day.
  */
+
 @Component
 @Order(20)
 public class FlightDateRule implements EligibilityRule {
@@ -41,8 +36,7 @@ public class FlightDateRule implements EligibilityRule {
     }
 
     /*
-     * An invalid zone fails here, at startup, rather than on the
-     * first ad request.
+     * An invalid zone fails here, at startup
      */
     @Autowired
     public FlightDateRule(

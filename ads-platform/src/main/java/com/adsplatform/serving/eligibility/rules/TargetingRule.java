@@ -14,17 +14,6 @@ import com.adsplatform.serving.model.CandidateAd;
 /*
  * Applies the Campaign targeting information currently
  * available in the platform.
- *
- * targetShowIds:
- * An explicit allowlist, e.g. for a sponsorship deal or an
- * internal override. Empty means no show restriction.
- *
- * targetingSegments:
- * Campaign is eligible when the current viewer matches
- * at least one requested audience segment.
- *
- * Platform-generated targeting/recommendation logic can
- * later be added independently without changing the engine.
  */
 @Component
 @Order(60)
@@ -46,7 +35,6 @@ public class TargetingRule implements EligibilityRule {
         /*
          * Empty show targeting means there is no manual
          * show restriction.
-         *
          * Non-empty values act as an explicit allowlist.
          */
         if (!targetShowIds.isEmpty()

@@ -34,8 +34,7 @@ public class AdDecisionService {
 
     /*
      * Best score first. Ties go to the lower campaign id, then the
-     * lower creative id, so the same input always gives the same
-     * order: stable tests and replayable decisions.
+     * lower creative id
      */
     private static final Comparator<RankedAd> BEST_FIRST = Comparator.comparingDouble(RankedAd::score).reversed()
             .thenComparing(RankedAd::campaignId)
@@ -98,7 +97,7 @@ public class AdDecisionService {
         for (int i = 0; i < eligible.size(); i++) {
             CandidateAd candidate = eligible.get(i);
             // Retrieval already excludes campaigns without a bid;
-            // this keeps a missing bid from ever reaching a slot.
+            // Retrieval already filters out missing bids.
             if (candidate.campaign().bidCpc() == null) {
                 continue;
             }
@@ -112,10 +111,7 @@ public class AdDecisionService {
         return ranked;
     }
 
-    /*
-     * Keeps each campaign's best creative. The list is already
-     * sorted best first, so the first entry per campaign wins.
-     */
+    //  Keeps each campaign's best creative. The first entry per campaign wins.
     private static List<RankedAd> bestPerCampaign(List<RankedAd> ranked) {
         Map<Long, RankedAd> best = new LinkedHashMap<>();
 

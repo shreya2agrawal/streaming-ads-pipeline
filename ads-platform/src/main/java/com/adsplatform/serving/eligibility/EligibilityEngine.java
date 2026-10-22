@@ -9,14 +9,6 @@ import com.adsplatform.serving.model.CandidateAd;
 
 /*
  * Runs all registered eligibility rules for a candidate.
- *
- * Spring automatically injects every EligibilityRule implementation.
- *
- * To add a new eligibility check:
- * 1. Create a new class implementing EligibilityRule
- * 2. Mark it as a Spring component
- *
- * No change is required in this engine.
  */
 @Service
 public class EligibilityEngine {

@@ -10,11 +10,6 @@ import com.adsplatform.serving.eligibility.IneligibilityReason;
 import com.adsplatform.serving.model.AdRequestContext;
 import com.adsplatform.serving.model.CandidateAd;
 
-/*
- * A campaign can participate in ad serving
- * only when it is ACTIVE.
- */
-
 @Component 
 @Order(10)
 public class CampaignStatusRule implements EligibilityRule {

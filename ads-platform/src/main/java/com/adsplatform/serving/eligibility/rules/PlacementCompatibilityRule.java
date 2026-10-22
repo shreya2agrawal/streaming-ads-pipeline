@@ -42,9 +42,6 @@ public class PlacementCompatibilityRule
         DeviceType requestDevice =
                 context.deviceType();
 
-        /*
-         * Candidate was built for a different placement.
-         */
         if (!placement.id().equals(requestPlacementId)) {
             return EligibilityResult.ineligible(
                     IneligibilityReason.PLACEMENT_MISMATCH,

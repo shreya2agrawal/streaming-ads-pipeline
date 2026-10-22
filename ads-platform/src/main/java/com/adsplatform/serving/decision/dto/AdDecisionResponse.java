@@ -14,9 +14,6 @@ import com.fasterxml.jackson.annotation.JsonInclude;
  * ads carries only what a player needs to show an ad and track a
  * click. The advertiser's destination is never included: viewers
  * must go through clickUrl, so every click is recorded.
- *
- * explanation (prices, scores, exclusions) is commercially
- * sensitive and is only included in debug mode.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record AdDecisionResponse(

@@ -27,9 +27,6 @@ import lombok.NoArgsConstructor;
  * The record of one ad decision, kept so clicks can be traced back
  * to the exact slot, campaign and price, and so fill rate can be
  * measured. No-fills are recorded too.
- *
- * The id is generated in Java, so it is known before the insert
- * and can go straight into logs and the response.
  */
 @Entity
 @Table(name = "ad_decisions")

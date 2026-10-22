@@ -23,8 +23,6 @@ import lombok.RequiredArgsConstructor;
  * Server-to-server: the advertiser's server reports bookings and
  * cancellations. No @CrossOrigin, since browsers on other sites
  * have no reason to call this.
- *
- * Designed, not built: authenticating each advertiser with an API key.
  */
 @RestController
 @RequestMapping("/api/v1/conversions")

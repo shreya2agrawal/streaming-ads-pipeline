@@ -10,10 +10,6 @@ import com.adsplatform.serving.eligibility.IneligibilityReason;
 import com.adsplatform.serving.model.AdRequestContext;
 import com.adsplatform.serving.model.CandidateAd;
 
-/*
- * Only ACTIVE creatives may participate
- * in real-time ad serving.
- */
 @Component
 @Order(40)
 public class CreativeStatusRule implements EligibilityRule {
