@@ -21,6 +21,8 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.adsplatform.campaign.Campaign;
+import com.adsplatform.campaign.CampaignRepository;
 import com.adsplatform.common.exception.ResourceNotFoundException;
 import com.adsplatform.serving.click.AdClick;
 import com.adsplatform.serving.click.AdClickRepository;
@@ -29,6 +31,8 @@ import com.adsplatform.serving.conversion.ConversionService.RecordOutcome;
 
 class ConversionServiceTest {
 
+    private static final String OWNER = "Home Refresh Co.";
+    private static final String OTHER = "Northpeak";
     private static final String TOKEN = "token-abc";
     private static final String BOOKING = "HR-1001";
     private static final BigDecimal VALUE = new BigDecimal("2400.00");
@@ -36,16 +40,24 @@ class ConversionServiceTest {
 
     private AdClickRepository clickRepository;
     private AdConversionRepository conversionRepository;
+    private CampaignRepository campaignRepository;
     private ConversionService conversionService;
 
     @BeforeEach
     void setUp() {
         clickRepository = mock(AdClickRepository.class);
         conversionRepository = mock(AdConversionRepository.class);
+        campaignRepository = mock(CampaignRepository.class);
         conversionService = new ConversionService(
                 clickRepository,
                 conversionRepository,
+                campaignRepository,
                 Clock.fixed(NOW, ZoneOffset.UTC));
+
+        // Campaign 10 belongs to OWNER.
+        Campaign campaign = mock(Campaign.class);
+        when(campaign.getAdvertiser()).thenReturn(OWNER);
+        when(campaignRepository.findById(10L)).thenReturn(Optional.of(campaign));
     }
 
     // A click on campaign 10, made `ago` before NOW.
@@ -59,7 +71,12 @@ class ConversionServiceTest {
     }
 
     private RecordOutcome record(Instant convertedAt) {
-        return conversionService.recordConversion(TOKEN, BOOKING, VALUE, "USD", convertedAt);
+        return conversionService.recordConversion(OWNER, TOKEN, BOOKING, VALUE, "USD", convertedAt);
+    }
+
+    private void verifyNothingInserted() {
+        verify(conversionRepository, never())
+                .insertIfAbsent(anyString(), anyLong(), anyString(), any(), anyString(), any(), any());
     }
 
     // Recording
@@ -69,11 +86,23 @@ class ConversionServiceTest {
         when(clickRepository.findByClickToken("made-up")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> conversionService.recordConversion(
-                "made-up", BOOKING, VALUE, "USD", NOW))
-                .isInstanceOf(ResourceNotFoundException.class);
+                OWNER, "made-up", BOOKING, VALUE, "USD", NOW))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Unknown click");
 
-        verify(conversionRepository, never())
-                .insertIfAbsent(anyString(), anyLong(), anyString(), any(), anyString(), any(), any());
+        verifyNothingInserted();
+    }
+
+    @Test
+    void clickOfAnotherAdvertiserLooksUnknown() {
+        clickMade(Duration.ofHours(2));
+
+        assertThatThrownBy(() -> conversionService.recordConversion(
+                OTHER, TOKEN, BOOKING, VALUE, "USD", NOW.minus(Duration.ofHours(1))))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Unknown click");
+
+        verifyNothingInserted();
     }
 
     @Test
@@ -106,8 +135,7 @@ class ConversionServiceTest {
         assertThat(record(clickedAt.minus(Duration.ofMinutes(1))))
                 .isEqualTo(RecordOutcome.OUTSIDE_WINDOW);
 
-        verify(conversionRepository, never())
-                .insertIfAbsent(anyString(), anyLong(), anyString(), any(), anyString(), any(), any());
+        verifyNothingInserted();
     }
 
     @Test
@@ -155,8 +183,19 @@ class ConversionServiceTest {
         clickMade(Duration.ofHours(2));
         when(conversionRepository.cancel(10L, BOOKING, NOW)).thenReturn(1);
 
-        assertThat(conversionService.cancelConversion(TOKEN, BOOKING))
+        assertThat(conversionService.cancelConversion(OWNER, TOKEN, BOOKING))
                 .isEqualTo(CancelOutcome.CANCELLED);
+    }
+
+    @Test
+    void anotherAdvertiserCannotCancel() {
+        clickMade(Duration.ofHours(2));
+
+        assertThatThrownBy(() -> conversionService.cancelConversion(OTHER, TOKEN, BOOKING))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Unknown click");
+
+        verify(conversionRepository, never()).cancel(anyLong(), anyString(), any());
     }
 
     @Test
@@ -166,7 +205,7 @@ class ConversionServiceTest {
         when(conversionRepository.findByCampaignIdAndBookingId(10L, BOOKING))
                 .thenReturn(Optional.of(mock(AdConversion.class)));
 
-        assertThat(conversionService.cancelConversion(TOKEN, BOOKING))
+        assertThat(conversionService.cancelConversion(OWNER, TOKEN, BOOKING))
                 .isEqualTo(CancelOutcome.ALREADY_CANCELLED);
     }
 
@@ -177,7 +216,7 @@ class ConversionServiceTest {
         when(conversionRepository.findByCampaignIdAndBookingId(10L, BOOKING))
                 .thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> conversionService.cancelConversion(TOKEN, BOOKING))
+        assertThatThrownBy(() -> conversionService.cancelConversion(OWNER, TOKEN, BOOKING))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Unknown conversion");
     }
@@ -186,7 +225,7 @@ class ConversionServiceTest {
     void cancellingForAnUnknownClickIsNotFound() {
         when(clickRepository.findByClickToken("made-up")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> conversionService.cancelConversion("made-up", BOOKING))
+        assertThatThrownBy(() -> conversionService.cancelConversion(OWNER, "made-up", BOOKING))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Unknown click");
 

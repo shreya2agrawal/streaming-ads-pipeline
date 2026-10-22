@@ -8,6 +8,8 @@ import java.time.Instant;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.adsplatform.campaign.Campaign;
+import com.adsplatform.campaign.CampaignRepository;
 import com.adsplatform.common.exception.ResourceNotFoundException;
 import com.adsplatform.serving.click.AdClick;
 import com.adsplatform.serving.click.AdClickRepository;
@@ -37,16 +39,18 @@ public class ConversionService {
 
     private final AdClickRepository adClickRepository;
     private final AdConversionRepository adConversionRepository;
+    private final CampaignRepository campaignRepository;
     private final Clock clock;
 
     @Transactional
     public RecordOutcome recordConversion(
+            String advertiser,
             String clickToken,
             String bookingId,
             BigDecimal value,
             String currency,
             Instant convertedAt) {
-        AdClick click = findClick(clickToken);
+        AdClick click = findOwnedClick(advertiser,clickToken);
         Instant now = clock.instant();
 
         if (convertedAt.isAfter(now.plus(CLOCK_SKEW_ALLOWANCE))) {
@@ -74,28 +78,40 @@ public class ConversionService {
     }
 
     @Transactional
-    public CancelOutcome cancelConversion(String clickToken, String bookingId){
-        AdClick click = findClick(clickToken);
+    public CancelOutcome cancelConversion(String advertiser, String clickToken, String bookingId) {
+        AdClick click = findOwnedClick(advertiser, clickToken);
         Long campaignId = click.getCampaignId();
 
         int cancelled = adConversionRepository.cancel(
-            campaignId, 
-            bookingId, 
-            clock.instant());
-        
-        if(cancelled == 1) {
+                campaignId,
+                bookingId,
+                clock.instant());
+
+        if (cancelled == 1) {
             return CancelOutcome.CANCELLED;
         }
 
-        if(adConversionRepository.findByCampaignIdAndBookingId(campaignId, bookingId).isPresent()) {
+        if (adConversionRepository.findByCampaignIdAndBookingId(campaignId, bookingId).isPresent()) {
             return CancelOutcome.ALREADY_CANCELLED;
         }
         throw new ResourceNotFoundException("Unknown conversion");
     }
 
-    private AdClick findClick(String clickToken) {
-        return adClickRepository.findByClickToken(clickToken)
+    private AdClick findOwnedClick(String advertiser, String clickToken) {
+
+        AdClick click = adClickRepository.findByClickToken(clickToken)
                 .orElseThrow(() -> new ResourceNotFoundException("Unknown click"));
+
+        boolean owned = campaignRepository.findById(click.getCampaignId())
+                .map(Campaign::getAdvertiser)
+                .filter(advertiser::equals)
+                .isPresent();
+
+        if (!owned) {
+            throw new ResourceNotFoundException("Unknown click");
+        }
+
+        return click;
     }
 
 }

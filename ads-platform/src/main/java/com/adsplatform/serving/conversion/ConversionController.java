@@ -4,9 +4,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.adsplatform.apikey.ApiKeyService;
 import com.adsplatform.common.ApiResponse;
 import com.adsplatform.serving.conversion.ConversionService.CancelOutcome;
 import com.adsplatform.serving.conversion.ConversionService.RecordOutcome;
@@ -29,38 +31,49 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ConversionController {
 
-    private final ConversionService conversionService;
+        static final String API_KEY_HEADER = "X-Api-Key";
 
-    @PostMapping
-    public ResponseEntity<ApiResponse<ConversionResponse>> record(
-            @Valid @RequestBody ConversionRequest request) {
+        private final ConversionService conversionService;
+        private final ApiKeyService apiKeyService;
 
-        RecordOutcome outcome = conversionService.recordConversion(
-                request.clickToken(),
-                request.bookingId(),
-                request.value(),
-                request.currency(),
-                request.convertedAt());
+        @PostMapping
+        public ResponseEntity<ApiResponse<ConversionResponse>> record(
+                        @RequestHeader(name = API_KEY_HEADER, required = false) String apiKey,
+                        @Valid @RequestBody ConversionRequest request) {
 
-        // 201 only when a new conversion was created; retries get 200.
-        HttpStatus status = outcome == RecordOutcome.RECORDED
-                ? HttpStatus.CREATED
-                : HttpStatus.OK;
+                String advertiser = apiKeyService.authenticate(apiKey);
 
-        return ResponseEntity.status(status)
-                .body(ApiResponse.ok(new ConversionResponse(outcome.name())));
-    }
+                RecordOutcome outcome = conversionService.recordConversion(
+                                advertiser,
+                                request.clickToken(),
+                                request.bookingId(),
+                                request.value(),
+                                request.currency(),
+                                request.convertedAt());
 
-    @PostMapping("/cancellations")
-    public ResponseEntity<ApiResponse<ConversionResponse>> cancel(
-            @Valid @RequestBody CancellationRequest request) {
+                // 201 only when a new conversion was created; retries get 200.
+                HttpStatus status = outcome == RecordOutcome.RECORDED
+                                ? HttpStatus.CREATED
+                                : HttpStatus.OK;
 
-        CancelOutcome outcome = conversionService.cancelConversion(
-                request.clickToken(),
-                request.bookingId());
+                return ResponseEntity.status(status)
+                                .body(ApiResponse.ok(new ConversionResponse(outcome.name())));
+        }
 
-        return ResponseEntity.ok(
-                ApiResponse.ok(new ConversionResponse(outcome.name())));
-    }
+        @PostMapping("/cancellations")
+        public ResponseEntity<ApiResponse<ConversionResponse>> cancel(
+                        @RequestHeader(name = API_KEY_HEADER, required = false) String apiKey,
+                        @Valid @RequestBody CancellationRequest request) {
+
+                String advertiser = apiKeyService.authenticate(apiKey);
+
+                CancelOutcome outcome = conversionService.cancelConversion(
+                                advertiser,
+                                request.clickToken(),
+                                request.bookingId());
+
+                return ResponseEntity.ok(
+                                ApiResponse.ok(new ConversionResponse(outcome.name())));
+        }
 
 }
