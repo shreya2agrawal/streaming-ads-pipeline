@@ -86,9 +86,7 @@ public record CandidateAd(
 
         }
 
-        /*
-         * Keeps existing callers working: no bid.
-         */
+        // When there is no bid: bidCpc is null.
         public CampaignSnapshot(
                 Long id,
                 String name,
