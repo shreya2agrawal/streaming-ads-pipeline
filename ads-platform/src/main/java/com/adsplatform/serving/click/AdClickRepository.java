@@ -2,6 +2,7 @@ package com.adsplatform.serving.click;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -40,4 +41,7 @@ public interface AdClickRepository extends JpaRepository<AdClick, Long> {
             @Param("amount") BigDecimal amount);
 
     long countByClickToken(String clickToken);
+
+    // The click token is unique, so at most one click matches.
+    Optional<AdClick> findByClickToken(String clickToken);
 }
